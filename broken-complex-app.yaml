@@ -1,0 +1,198 @@
+# Application complexe cassée pour troubleshooting avancé - Partie 3.3
+# Ce fichier contient intentionnellement de nombreuses erreurs à corriger
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: broken-config
+  namespace: esme-tp-[votre-nom]  # Remplacer par votre namespace
+data:
+  database_url: "postgres://user:wrong-password@nonexistent-db:5432/app"
+  cache_enabled: "yes"
+  log_level: "TRACE"
+  max_connections: "unlimited"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: broken-secret
+  namespace: esme-tp-[votre-nom]  # Remplacer par votre namespace
+type: Opaque
+data:
+  api-key: "YWJjZGVmZ2g="
+  database-password: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broken-complex-app
+  namespace: esme-tp-[votre-nom]  # Remplacer par votre namespace
+  labels:
+    app: broken-app
+    version: v1.0
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: broken-application
+      version: v1.0
+  template:
+    metadata:
+      labels:
+        app: broken-app
+        version: v1.1
+    spec:
+      containers:
+      - name: web-app
+        image: nginx:1.20-alpine
+        ports:
+        - containerPort: 8080
+        - containerPort: 443
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: broken-config
+              key: database_url
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: broken-secret
+              key: api-token
+        - name: CACHE_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: nonexistent-config
+              key: cache_enabled
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+            scheme: HTTPS
+          initialDelaySeconds: 2
+          periodSeconds: 5
+          timeoutSeconds: 1
+          failureThreshold: 2
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 1
+          periodSeconds: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+        - name: secret-volume
+          mountPath: /etc/secrets
+          readOnly: false
+      - name: sidecar-logging
+        image: busybox:1.35
+        command: ["tail", "-f", "/var/log/app.log"]
+        volumeMounts:
+        - name: log-volume
+          mountPath: /var/log
+        resources:
+          requests:
+            memory: "500Mi"
+            cpu: "200m"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: broken-config
+          defaultMode: 0777
+      - name: secret-volume
+        secret:
+          secretName: missing-secret
+      - name: log-volume
+        emptyDir:
+          sizeLimit: "10Gi"
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: broken-app
+            topologyKey: "kubernetes.io/hostname"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broken-complex-service
+  namespace: esme-tp-[votre-nom]  # Remplacer par votre namespace
+  labels:
+    app: broken-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: broken-application
+    environment: production
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: UDP
+  - name: https
+    port: 443
+    targetPort: 8443
+  - name: metrics
+    port: 9090
+    targetPort: monitoring
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: broken-ingress
+  namespace: esme-tp-[votre-nom]  # Remplacer par votre namespace
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+spec:
+  tls:
+  - hosts:
+    - broken-app.esme.local
+    secretName: nonexistent-tls-secret
+  rules:
+  - host: broken-app.esme.local
+    http:
+      paths:
+      - path: /
+        pathType: Exact
+        backend:
+          service:
+            name: wrong-service-name
+            port:
+              number: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: broken-hpa
+  namespace: esme-tp-[votre-nom]  # Remplacer par votre namespace
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: broken-app-deployment
+  minReplicas: 3
+  maxReplicas: 1
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 150
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 200

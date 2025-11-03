@@ -1,0 +1,198 @@
+# Application complexe CORRIGÉE - Partie 3.3
+# Toutes les erreurs ont été identifiées et corrigées
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: broken-config
+  namespace: esme-tp-maxime
+data:
+  database_url: "postgres://user:wrong-password@nonexistent-db:5432/app"
+  cache_enabled: "yes"
+  log_level: "TRACE"
+  max_connections: "unlimited"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: broken-secret
+  namespace: esme-tp-maxime
+type: Opaque
+data:
+  api-key: "YWJjZGVmZ2g="
+  database-password: "cGFzc3dvcmQ="  # CORRIGÉ: ajout d'une valeur (base64 de "password")
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: broken-complex-app
+  namespace: esme-tp-maxime
+  labels:
+    app: broken-app
+    version: v1.0
+spec:
+  replicas: 2  # CORRIGÉ: réduit à 2 pour l'anti-affinity
+  selector:
+    matchLabels:
+      app: broken-app  # CORRIGÉ: correspondance avec template
+      version: v1.0    # CORRIGÉ: correspondance avec template
+  template:
+    metadata:
+      labels:
+        app: broken-app
+        version: v1.0  # CORRIGÉ: version cohérente
+    spec:
+      containers:
+      - name: web-app
+        image: nginx:1.20-alpine
+        ports:
+        - containerPort: 80  # CORRIGÉ: nginx écoute sur 80
+        - containerPort: 443
+        resources:
+          requests:
+            memory: "512Mi"  # CORRIGÉ: requests < limits
+            cpu: "250m"      # CORRIGÉ: requests < limits
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: broken-config
+              key: database_url
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: broken-secret
+              key: api-key  # CORRIGÉ: clé correcte
+        - name: CACHE_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: broken-config  # CORRIGÉ: ConfigMap existant
+              key: cache_enabled
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80  # CORRIGÉ: port HTTP 80
+            scheme: HTTP  # CORRIGÉ: HTTP au lieu de HTTPS
+          initialDelaySeconds: 5  # CORRIGÉ: délai raisonnable
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 3
+          periodSeconds: 5
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+        - name: secret-volume
+          mountPath: /etc/secrets
+          readOnly: true  # CORRIGÉ: secrets en lecture seule
+      - name: sidecar-logging
+        image: busybox:1.35
+        command: ["sh", "-c", "while true; do echo 'Logging...'; sleep 10; done"]  # CORRIGÉ: commande qui fonctionne
+        volumeMounts:
+        - name: log-volume
+          mountPath: /var/log
+        resources:
+          requests:
+            memory: "64Mi"  # CORRIGÉ: ressources raisonnables
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: broken-config
+          defaultMode: 0644  # CORRIGÉ: permissions appropriées
+      - name: secret-volume
+        secret:
+          secretName: broken-secret  # CORRIGÉ: secret existant
+          defaultMode: 0400
+      - name: log-volume
+        emptyDir:
+          sizeLimit: "1Gi"  # CORRIGÉ: taille raisonnable
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:  # CORRIGÉ: preferred au lieu de required
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: broken-app
+              topologyKey: "kubernetes.io/hostname"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: broken-complex-service
+  namespace: esme-tp-maxime
+  labels:
+    app: broken-service
+spec:
+  type: ClusterIP  # CORRIGÉ: ClusterIP pour usage interne
+  selector:
+    app: broken-app  # CORRIGÉ: sélecteur correspondant
+    version: v1.0    # CORRIGÉ: version correspondante
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80  # CORRIGÉ: port correct
+    protocol: TCP   # CORRIGÉ: TCP au lieu de UDP
+  - name: https
+    port: 443
+    targetPort: 443
+    protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: broken-ingress
+  namespace: esme-tp-maxime
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"  # CORRIGÉ: pas de TLS
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: broken-app.esme.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix  # CORRIGÉ: Prefix au lieu de Exact
+        backend:
+          service:
+            name: broken-complex-service  # CORRIGÉ: nom correct
+            port:
+              number: 80  # CORRIGÉ: port correct
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: broken-hpa
+  namespace: esme-tp-maxime
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: broken-complex-app  # CORRIGÉ: nom correct
+  minReplicas: 1  # CORRIGÉ: min < max
+  maxReplicas: 5  # CORRIGÉ: max > min
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70  # CORRIGÉ: valeur réaliste
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80  # CORRIGÉ: valeur réaliste
