@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: esme-app-ingress
+  namespace: esme-tp-maxime
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  labels:
+    app: esme-app
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: esme-tp-maxime.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: esme-app-clusterip
+            port:
+              number: 80
