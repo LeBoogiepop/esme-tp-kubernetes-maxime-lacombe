@@ -5,7 +5,7 @@ metadata:
   namespace: esme-tp-maxime
   labels:
     app: esme-app
-    version: v1.0
+    version: v2.0
 spec:
   replicas: 3
   selector:
@@ -15,14 +15,17 @@ spec:
     metadata:
       labels:
         app: esme-app
-        version: v1.0
+        version: v2.0
     spec:
       containers:
       - name: esme-app
-        image: booogiepop/esme-app:v1.0
+        image: booogiepop/esme-app:v2.0
         ports:
         - containerPort: 3000
           name: http
+        envFrom:
+        - configMapRef:
+            name: esme-app-config
         resources:
           requests:
             cpu: 100m

@@ -1,6 +1,6 @@
 {
   "name": "esme-devops-app",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Application de test pour le TP Kubernetes ESME 2025",
   "main": "app.js",
   "scripts": {

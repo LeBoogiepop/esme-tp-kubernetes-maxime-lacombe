@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: esme-app-config
+  namespace: esme-tp-maxime
+  labels:
+    app: esme-app
+data:
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  MESSAGE: "Déployé par Maxime LACOMBE sur Azure Kubernetes"
