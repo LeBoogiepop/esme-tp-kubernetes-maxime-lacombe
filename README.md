@@ -19,14 +19,25 @@ Application Node.js de démonstration pour le TP d'évaluation Kubernetes 2025.
 ```
 
 ## Version actuelle
-- **v1.0.0** - Application initiale avec endpoints / et /health
+- **v1.0.0** - Application avec support des variables d'environnement et 3 endpoints
 
 ## URL de l'image Docker
-*À compléter après push sur Docker Hub*
+**Docker Hub** : https://hub.docker.com/r/booogiepop/esme-app
+
+**Pull de l'image** :
+```bash
+docker pull booogiepop/esme-app:v1.0
+```
+
+**Lancer l'application** :
+```bash
+docker run -d -p 3000:3000 booogiepop/esme-app:v1.0
+```
 
 ## Endpoints disponibles
-- `GET /` - Page d'accueil avec informations de déploiement
-- `GET /health` - Health check endpoint (retourne JSON)
+- `GET /` - Page d'accueil avec informations de déploiement et variables d'environnement
+- `GET /health` - Health check endpoint (retourne JSON avec status et environnement)
+- `GET /info` - Informations techniques détaillées (uptime, hostname, version)
 
 ## Démarrage local
 ```bash
