@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: esme-tp-maxime
+  labels:
+    name: esme-tp-maxime
+    environment: production
+    project: kubernetes-tp

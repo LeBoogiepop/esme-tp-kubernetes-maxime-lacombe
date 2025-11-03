@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: esme-app-loadbalancer
+  namespace: esme-tp-maxime
+  labels:
+    app: esme-app
+    service-type: external
+spec:
+  type: LoadBalancer
+  selector:
+    app: esme-app
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 3000
+  sessionAffinity: None
